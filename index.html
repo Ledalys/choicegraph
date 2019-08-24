@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>Choice Graph</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <style>* {padding: 0; margin: 0}</style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/5.1.1/pixi.min.js"></script>
+    <script type="text/javascript">
+
+        
+
+        /**
+         * todo :
+         *  - corriger too much recursion quand on a une boucle + il faut définir la page de début
+         *  - titlestyle à mieux déclarer + beautify + corriger too much recursion quand on a une boucle + zoom vers la souris + scale moche
+         *  - beautify
+         *  - zoom vers la souris
+         *  - scale moche
+         *  - faire des fichiers js + télécharger pixi plutot que d'utiliser le cdn
+         */
+
+
+        var ChoiceDiag = (function (PIXI) {
+
+            const PAGE_WIDTH = 200;
+
+            var titleStyle = new PIXI.TextStyle({
+                fontFamily: "Arial",
+                fontSize: 16,
+                fill: "#333333",
+                wordWrap: true,
+                wordWrapWidth: PAGE_WIDTH
+            });
+
+            var choiceStyle = new PIXI.TextStyle({
+                fontFamily: "Arial",
+                fontSize: 14,
+                fill: "#333333",
+                wordWrap: true,
+                wordWrapWidth: PAGE_WIDTH
+            });
+
+            /**
+             * todo
+             */
+            var AnchorPoint = (function (Container, Graphics) {
+                function AnchorPoint() {
+                    Container.call(this);
+                    this.point = null;
+                    this.initialize();
+                };
+                AnchorPoint.prototype = Object.create(Container.prototype);
+                AnchorPoint.prototype.constructor = AnchorPoint;
+                AnchorPoint.prototype.initialize = function () {
+                    this.point = new Graphics();
+                    this.point.beginFill(0x55c1e6);
+                    this.point.drawCircle(0, 0, 6);
+                    this.point.endFill();
+                    this.addChild(this.point);
+                };
+                return AnchorPoint;
+            }(PIXI.Container, PIXI.Graphics));
+
+            /**
+             * todo
+             */
+            var AnchorHitbox = (function (Container, Graphics) {
+                function AnchorHitbox(height) {
+                    Container.call(this);
+                    this.hitbox = null;
+                    this.anchorHeight = height;
+                    this.initialize();
+                };
+                AnchorHitbox.prototype = Object.create(Container.prototype);
+                AnchorHitbox.prototype.constructor = AnchorHitbox;
+                AnchorHitbox.prototype.initialize = function () {
+                    this.hitbox = new Graphics();
+                    this.hitbox.beginFill(0x66CCFF, 0);
+                    this.hitbox.drawRect(0, 0, 20, this.anchorHeight);
+                    this.hitbox.endFill();
+                    this.addChild(this.hitbox);
+                };
+                return AnchorHitbox;
+            }(PIXI.Container, PIXI.Graphics));
+
+            /**
+             * todo
+             */
+            var Anchor = (function (Container) {
+                /**
+                 * @param {hitboxHeight: number, side: left|right} settings
+                 */
+                function Anchor(settings) {
+                    Container.call(this);
+                    this.hitboxHeight = settings.hitboxHeight || 20;
+                    this.side = settings.side === 'right' ? 'right' : 'left';
+                    this.hitbox = null;
+                    this.point = null;
+                    this.initialize();
+                };
+                Anchor.prototype = Object.create(Container.prototype);
+                Anchor.prototype.constructor = Anchor;
+                Anchor.prototype.initialize = function () {
+                    this.point = new AnchorPoint();
+                    this.hitbox = new AnchorHitbox(this.hitboxHeight);
+                    var pointX = this.side === 'left' ? this.hitbox.width : 0;
+                    this.point.position.set(pointX, this.hitboxHeight / 2);
+                    this.addChild(this.hitbox);
+                    this.addChild(this.point);
+                };
+                return Anchor;
+            }(PIXI.Container));
+
+            /**
+             * todo
+             */
+            var GroupAnchor = (function (Anchor) {
+                /**
+                 * @param {Group} group
+                 */
+                function GroupAnchor(group) {
+                    Anchor.call(this, {hitboxHeight: group.header.height, side: 'left'});
+                    this.group = group;
+                };
+                GroupAnchor.prototype = Object.create(Anchor.prototype);
+                GroupAnchor.prototype.constructor = GroupAnchor;
+                return GroupAnchor;
+            }(Anchor));
+
+            /**
+             * todo
+             */
+            var Title = (function (Container, Text) {
+                /**
+                 * @param {title: string} data
+                 */
+                function Title(data) {
+                    Container.call(this);
+                    this.data = data;
+                    this.title = null;
+                    this.initialize();
+                };
+                Title.prototype = Object.create(Container.prototype);
+                Title.prototype.constructor = Title;
+                Title.prototype.initialize = function () {
+                    this.title = this.makeTitle(this.data);
+                    this.addChild(this.title);
+                };
+
+                Title.prototype.makeTitle = function (data) {
+                    var title = new Text(data.title, titleStyle);
+                    return title;
+                }
+
+                return Title;
+            }(PIXI.Container, PIXI.Text));
+
+            /**
+             * todo
+             */
+            var TitleBackground = (function (Container, Graphics) {
+                /**
+                 * @param {Title} title
+                 */
+                function TitleBackground(title) {
+                    Container.call(this);
+                    this.title = title;
+                    this.background = null;
+                    this.initialize();
+                };
+                TitleBackground.prototype = Object.create(Container.prototype);
+                TitleBackground.prototype.constructor = TitleBackground;
+                TitleBackground.prototype.initialize = function () {
+                    this.background = new Graphics();
+                    this.background.lineStyle(1, 0x333333, 1, 1);
+                    this.background.beginFill(0xfafaf7);
+                    this.background.drawRect(0, 0, PAGE_WIDTH, this.title.title.height);
+                    this.background.endFill();
+                    this.addChild(this.background);
+                };
+                return TitleBackground;
+            }(PIXI.Container, PIXI.Graphics));
+
+            /**
+             * todo
+             */
+            var GroupHeader = (function (Container) {
+                /**
+                 * @param {Group} group
+                 */
+                function GroupHeader(group) {
+                    Container.call(this);
+                    this.group = group;
+                    this.background = null;
+                    this.title = null;
+                    this.initialize();
+                };
+                GroupHeader.prototype = Object.create(Container.prototype);
+                GroupHeader.prototype.constructor = GroupHeader;
+                GroupHeader.prototype.initialize = function () {
+                    this.title = new Title(this.group.data);
+                    this.background = new TitleBackground(this.title);
+                    this.addChild(this.background);
+                    this.addChild(this.title);
+                };
+                return GroupHeader;
+            }(PIXI.Container));
+
+            /**
+             * todo
+             */
+            var GroupBody = (function (Container) {
+                /**
+                 * @param {Group} group
+                 */
+                function GroupBody(group) {
+                    Container.call(this);
+                    this.group = group;
+                    this.initialize();
+                };
+                GroupBody.prototype = Object.create(Container.prototype);
+                GroupBody.prototype.constructor = GroupBody;
+                GroupBody.prototype.initialize = function () {
+
+                };
+
+                GroupBody.prototype.refresh = function () {
+                    var y = this.group.header.height;
+                    this.group.choices.forEach(function (choice) {
+                        choice.y = y;
+                        this.addChild(choice);
+                        y += choice.height;
+                    }, this);
+                };
+
+                return GroupBody;
+            }(PIXI.Container));
+
+            /**
+             * todo
+             */
+            var ChoiceText = (function (Container, Text) {
+                /**
+                 * @param {Choice} choice
+                 */
+                function ChoiceText(choice) {
+                    Container.call(this);
+                    this.choice = choice;
+                    this.text = null;
+                    this.initialize();
+                };
+                ChoiceText.prototype = Object.create(Container.prototype);
+                ChoiceText.prototype.constructor = ChoiceText;
+                ChoiceText.prototype.initialize = function () {
+                    this.text = new Text(this.choice.data.text, choiceStyle);
+                    this.addChild(this.text);
+                };
+                return ChoiceText;
+            }(PIXI.Container, PIXI.Text));
+
+            /**
+             * todo
+             */
+            var ChoiceBackground = (function (Container, Graphics) {
+                /**
+                 * @param {Choice} choice
+                 */
+                function ChoiceBackground(choice) {
+                    Container.call(this);
+                    this.choice = choice;
+                    this.background = null;
+                    this.initialize();
+                };
+                ChoiceBackground.prototype = Object.create(Container.prototype);
+                ChoiceBackground.prototype.constructor = ChoiceBackground;
+                ChoiceBackground.prototype.initialize = function () {
+                    this.background = new Graphics();
+                    this.background.lineStyle(1, 0x333333, 1, 1);
+                    this.background.beginFill(0xfafaf7);
+                    this.background.drawRect(0, 0, PAGE_WIDTH, this.choice.choiceText.height);
+                    this.background.endFill();
+                    this.addChild(this.background);
+                };
+                return ChoiceBackground;
+            }(PIXI.Container, PIXI.Graphics));
+
+            /**
+             * todo
+             */
+            var ChoiceAnchor = (function (Anchor) {
+                /**
+                 * @param {Choice} choice
+                 */
+                function ChoiceAnchor(choice) {
+                    Anchor.call(this, {hitboxHeight: choice.choiceBackground.height, side: 'right'});
+                    this.choice = choice;
+                };
+                ChoiceAnchor.prototype = Object.create(Anchor.prototype);
+                ChoiceAnchor.prototype.constructor = ChoiceAnchor;
+                return ChoiceAnchor;
+            }(Anchor));
+
+            /**
+             * todo
+             */
+            var Choice = (function (Container, Text) {
+                /**
+                 * @param {id: any, text: string, groupId: any} data
+                 */
+                function Choice(data) {
+                    Container.call(this);
+                    this.data = data;
+                    this.choiceText = null;
+                    this.choiceBackground = null;
+                    this.anchor = null;
+                    this.initialize();
+                };
+                Choice.prototype = Object.create(Container.prototype);
+                Choice.prototype.constructor = Choice;
+                Choice.prototype.initialize = function () {
+                    this.choiceText = new ChoiceText(this);
+                    this.choiceBackground = new ChoiceBackground(this);
+                    this.anchor = new ChoiceAnchor(this);
+                    this.anchor.position.set(this.choiceBackground.width, 0);
+                    this.addChild(this.anchor);
+                    this.addChild(this.choiceBackground);
+                    this.addChild(this.choiceText);
+                };
+                return Choice;
+            }(PIXI.Container, PIXI.Text));
+
+            /**
+             * todo
+             */
+            var Group = (function (Container) {
+                /**
+                 * @param {id: any, title: string} data
+                 */
+                function Group(data) {
+                    Container.call(this);
+                    this.data = data;
+                    this.choices = [];
+                    this.header = null;
+                    this.body = null;
+                    this.anchor = null;
+                    this.initialize();
+                };
+                Group.prototype = Object.create(Container.prototype);
+                Group.prototype.constructor = Group;
+                Group.prototype.initialize = function () {
+                    this.header = new GroupHeader(this);
+                    this.body = new GroupBody(this);
+                    this.anchor = new GroupAnchor(this);
+                    this.anchor.position.set(-this.anchor.hitbox.width, 0);
+                    this.addChild(this.anchor);
+                    this.addChild(this.header);
+                    this.addChild(this.body);
+                };
+
+                Group.prototype.refresh = function () {
+                    this.body.refresh();
+                };
+
+                return Group;
+            }(PIXI.Container));
+
+            /**
+             * todo
+             */
+            var Line = (function (Container, Graphics) {
+                function Line(fromChoice, toGroup) {
+                    Container.call(this);
+                    this.fromChoice = fromChoice;
+                    this.toGroup = toGroup;
+                    this.line = null;
+                    this.initialize();
+                };
+                Line.prototype = Object.create(Container.prototype);
+                Line.prototype.constructor = Line;
+                Line.prototype.initialize = function () {
+                    this.line = new Graphics();
+                    this.line.lineStyle(1, 0xFFFFFF, 1);
+                    var origin = {x: 0, y: 0};
+                    var fromGlobalPosition = this.fromChoice.anchor.point.point.toGlobal(origin);
+                    var toGlobalPosition = this.toGroup.anchor.point.point.toGlobal(origin);
+                    this.line.moveTo(fromGlobalPosition.x, fromGlobalPosition.y);
+                    this.line.lineTo(toGlobalPosition.x, toGlobalPosition.y);
+                    this.addChild(this.line);
+                };
+                return Line;
+            }(PIXI.Container, PIXI.Graphics));
+
+            /**
+             * todo
+             */
+            var Diagram = (function (Container) {
+                function Diagram() {
+                    Container.call(this);
+                    this.groups = [];
+                    this.initialize();
+                };
+                Diagram.prototype = Object.create(Container.prototype);
+                Diagram.prototype.constructor = Diagram;
+                Diagram.prototype.initialize = function () {
+                    
+                };
+
+                /**
+                 * Show new groups and links
+                 */
+                Diagram.prototype.refresh = function () {
+                    this.removeChildren();
+
+                    // order groups
+                    var orderedGroups = [];
+                    this.groups.forEach(function (group) {
+                        orderedGroups.push({
+                            "group": group,
+                            "pathLength": this.getLongestPath(group.data.id, this.groups)
+                        });
+                    }, this);
+
+                    orderedGroups.sort((group1, group2) => {
+                        return group1['pathLength'] > group2['pathLength'];
+                    });
+
+                    // display groups
+                    var x = 0;
+                    var y = 0;
+                    var column = 0;
+                    var lastWidth = 0;
+                    orderedGroups.forEach(function (groupWithLength) {
+                        if (groupWithLength.pathLength !== column) {
+                            x += lastWidth + 100;
+                            y = 0;
+                            column = groupWithLength.pathLength;
+                            lastWidth = 0;
+                        }
+                        groupWithLength.group.refresh();
+                        groupWithLength.group.position.set(x, y);
+                        this.addChild(groupWithLength.group);
+                        y += groupWithLength.group.height + 60;
+                        var width = groupWithLength.group.width;
+                        if (width > lastWidth) lastWidth = groupWithLength.group.width;
+                    }, this);
+
+                    // display lines
+                    this.groups.forEach(function (group) {
+                        group.choices.forEach(function (choice) {
+                            if (!choice.data.groupId) return;
+                            var toGroup = this.groups.find(function (el) {
+                                return el.data.id === choice.data.groupId;
+                            });
+                            if (!toGroup) return;
+                            var line = new Line(choice, toGroup);
+                            this.addChild(line);
+                        }, this);
+                    }, this);
+                }
+
+                Diagram.prototype.getLongestPath = function (id, groups) {
+                    var length = 0;
+                    groups.forEach(function (group) {
+                        group.choices.forEach(function (choice) {
+                            if (choice.data.groupId === id) {
+                                var parentLength = this.getLongestPath(group.data.id, groups);
+                                if (parentLength >= length) {
+                                    length = parentLength + 1;
+                                }
+                            }
+                        }, this);
+                    }, this);
+                    return length;
+                }
+
+                return Diagram;
+            }(PIXI.Container));
+
+            return {
+                Diagram: Diagram,
+                Group: Group,
+                Choice: Choice
+            };
+        }(PIXI));
+    </script>
+
+    <script type="text/javascript">
+
+        // init app
+        let app = new PIXI.Application();
+        app.renderer.backgroundColor = 0x819496;
+        app.renderer.view.style.position = "absolute";
+        app.renderer.view.style.display = "block";
+        app.renderer.autoDensity = true;
+        // autoresize
+        function resize() {
+            app.renderer.resize(window.innerWidth, window.innerHeight);
+        }
+        resize();
+        window.onresize = function(event) {
+            resize();
+        };
+        document.body.appendChild(app.view);
+
+        // content container
+        let contentContainer = new PIXI.Container();
+        contentContainer.interactive = true;
+        app.stage.addChild(contentContainer);
+
+        // zoom
+        let zoom = contentContainer.scale.x;
+        function onZoom(event) {
+            const scaleFactor = 0.1;
+            const scaleDirection = event.deltaY > 0 ? -1 : 1;
+            const scale = 1 + (scaleFactor * scaleDirection);
+            const current = contentContainer.scale.x;
+            zoom = current * scale;
+            contentContainer.scale.set(zoom);
+        }
+        app.view.addEventListener("wheel", onZoom);
+
+        // move
+        let previousMousePosition = undefined;
+        function onMove(event) {
+            if (event.data.buttons !== 1) {
+                if (previousMousePosition !== undefined) previousMousePosition = undefined;
+                return;
+            }
+            const newMousePosition = event.data.global;
+            if (previousMousePosition !== undefined) {
+                const deltaX = previousMousePosition.x - newMousePosition.x;
+                const deltaY = previousMousePosition.y - newMousePosition.y;
+                const currentContainerPosition = contentContainer.position;
+                contentContainer.position.set(currentContainerPosition.x - deltaX, currentContainerPosition.y - deltaY);
+            }
+            previousMousePosition = newMousePosition.clone();
+        }
+        contentContainer.on('mousemove', onMove);
+
+        var data = loadPages();
+
+        var diagram = new ChoiceDiag.Diagram();
+        
+        data.forEach((el) => {
+            var group = new ChoiceDiag.Group({
+                id: el['@id'],
+                title: el['title']
+            });
+
+            el['questions'].forEach((quest) => {
+                var choice = new ChoiceDiag.Choice({
+                    id: quest['@id'],
+                    text: quest['content'],
+                    groupId: quest['toPage']
+                });
+                group.choices.push(choice);
+            });
+
+            diagram.groups.push(group);
+        });
+
+        diagram.refresh();
+
+        contentContainer.addChild(diagram);
+
+        function loadPages() {
+            return [
+                {
+                    "@id": "/pages/1",
+                    "title": "Page 1 long long long long long long long long long long long long long",
+                    "content": "Bla bla !",
+                    "questions": [
+                        {
+                            "@id": "/questions/1",
+                            "content": "Question 1 ?",
+                            "fromPage": "/pages/1",
+                            "toPage": "/pages/2"
+                        },
+                        {
+                            "@id": "/questions/2",
+                            "content": "Question 2 ?",
+                            "fromPage": "/pages/1",
+                            "toPage": "/pages/3"
+                        },
+                        {
+                            "@id": "/questions/3",
+                            "content": "Question 3 ?",
+                            "fromPage": "/pages/1",
+                            "toPage": "/pages/4"
+                        },
+                    ]
+                },
+                {
+                    "@id": "/pages/2",
+                    "title": "Page 2",
+                    "content": "Bla bla !",
+                    "questions": [
+                        {
+                            "@id": "/questions/4",
+                            "content": "Question 4 ?",
+                            "fromPage": "/pages/2",
+                            "toPage": "/pages/5"
+                        },
+                        {
+                            "@id": "/questions/5",
+                            "content": "Question 5 ?",
+                            "fromPage": "/pages/2",
+                            "toPage": "/pages/8"
+                        }
+                    ]
+                },
+                {
+                    "@id": "/pages/3",
+                    "title": "Page 3",
+                    "content": "Bla bla !",
+                    "questions": [
+                        {
+                            "@id": "/questions/6",
+                            "content": "Question 6 ?",
+                            "fromPage": "/pages/3",
+                            "toPage": "/pages/7"
+                        }
+                    ]
+                },
+                {
+                    "@id": "/pages/4",
+                    "title": "Page 4",
+                    "content": "Bla bla !",
+                    "questions": [
+                        {
+                            "@id": "/questions/7",
+                            "content": "Question 7 ?",
+                            "fromPage": "/pages/4",
+                            "toPage": "/pages/6"
+                        }
+                    ]
+                },
+                {
+                    "@id": "/pages/5",
+                    "title": "Page 5",
+                    "content": "Bla bla !",
+                    "questions": [
+                        {
+                            "@id": "/questions/8",
+                            "content": "Question 8 ?",
+                            "fromPage": "/pages/5",
+                            "toPage": "/pages/3"
+                        }
+                    ]
+                },
+                {
+                    "@id": "/pages/6",
+                    "title": "Page 6",
+                    "content": "Bla bla !",
+                    "questions": [
+                        {
+                            "@id": "/questions/9",
+                            "content": "Question 9 ?",
+                            "fromPage": "/pages/6",
+                            "toPage": "/pages/7"
+                        }
+                    ]
+                },
+                {
+                    "@id": "/pages/7",
+                    "title": "Page 7",
+                    "content": "Bla bla !",
+                    "questions": [
+                    ]
+                },
+                {
+                    "@id": "/pages/8",
+                    "title": "Page 8",
+                    "content": "Bla bla !",
+                    "questions": [
+                    ]
+                }
+            ]
+            ;
+        }
+    </script>
+</body>
+</html>
