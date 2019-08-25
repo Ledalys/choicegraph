@@ -11,7 +11,14 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/5.1.1/pixi.min.js"></script>
     <script type="text/javascript">
 
-        
+        // color palette :
+        const COLORS = {
+            inverse: 0xdcdcdd,
+            light: 0xc5c3c6,
+            primary: 0x46494c,
+            secondary: 0x4c5c68,
+            accent: 0x1985a1
+        }
 
         /**
          * todo :
@@ -19,7 +26,7 @@
          *  - titlestyle à mieux déclarer + beautify + corriger too much recursion quand on a une boucle + zoom vers la souris + scale moche
          *  - beautify
          *  - zoom vers la souris
-         *  - scale moche
+         *  - scale moche (https://github.com/PixelsCommander/pixi-sdf-text)
          *  - faire des fichiers js + télécharger pixi plutot que d'utiliser le cdn
          */
 
@@ -31,7 +38,7 @@
             var titleStyle = new PIXI.TextStyle({
                 fontFamily: "Arial",
                 fontSize: 16,
-                fill: "#333333",
+                fill: COLORS.primary,
                 wordWrap: true,
                 wordWrapWidth: PAGE_WIDTH
             });
@@ -39,7 +46,7 @@
             var choiceStyle = new PIXI.TextStyle({
                 fontFamily: "Arial",
                 fontSize: 14,
-                fill: "#333333",
+                fill: COLORS.primary,
                 wordWrap: true,
                 wordWrapWidth: PAGE_WIDTH
             });
@@ -57,7 +64,7 @@
                 AnchorPoint.prototype.constructor = AnchorPoint;
                 AnchorPoint.prototype.initialize = function () {
                     this.point = new Graphics();
-                    this.point.beginFill(0x55c1e6);
+                    this.point.beginFill(COLORS.accent);
                     this.point.drawCircle(0, 0, 6);
                     this.point.endFill();
                     this.addChild(this.point);
@@ -79,7 +86,7 @@
                 AnchorHitbox.prototype.constructor = AnchorHitbox;
                 AnchorHitbox.prototype.initialize = function () {
                     this.hitbox = new Graphics();
-                    this.hitbox.beginFill(0x66CCFF, 0);
+                    this.hitbox.beginFill(COLORS.light, 0);
                     this.hitbox.drawRect(0, 0, 20, this.anchorHeight);
                     this.hitbox.endFill();
                     this.addChild(this.hitbox);
@@ -176,8 +183,8 @@
                 TitleBackground.prototype.constructor = TitleBackground;
                 TitleBackground.prototype.initialize = function () {
                     this.background = new Graphics();
-                    this.background.lineStyle(1, 0x333333, 1, 1);
-                    this.background.beginFill(0xfafaf7);
+                    this.background.lineStyle(2, COLORS.accent, 1, 1);
+                    this.background.beginFill(COLORS.inverse);
                     this.background.drawRect(0, 0, PAGE_WIDTH, this.title.title.height);
                     this.background.endFill();
                     this.addChild(this.background);
@@ -279,8 +286,8 @@
                 ChoiceBackground.prototype.constructor = ChoiceBackground;
                 ChoiceBackground.prototype.initialize = function () {
                     this.background = new Graphics();
-                    this.background.lineStyle(1, 0x333333, 1, 1);
-                    this.background.beginFill(0xfafaf7);
+                    this.background.lineStyle(2, COLORS.accent, 1, 1);
+                    this.background.beginFill(COLORS.light);
                     this.background.drawRect(0, 0, PAGE_WIDTH, this.choice.choiceText.height);
                     this.background.endFill();
                     this.addChild(this.background);
@@ -383,7 +390,7 @@
                 Line.prototype.constructor = Line;
                 Line.prototype.initialize = function () {
                     this.line = new Graphics();
-                    this.line.lineStyle(1, 0xFFFFFF, 1);
+                    this.line.lineStyle(2, COLORS.accent, 1);
                     var origin = {x: 0, y: 0};
                     var fromGlobalPosition = this.fromChoice.anchor.point.point.toGlobal(origin);
                     var toGlobalPosition = this.toGroup.anchor.point.point.toGlobal(origin);
@@ -492,7 +499,7 @@
 
         // init app
         let app = new PIXI.Application();
-        app.renderer.backgroundColor = 0x819496;
+        app.renderer.backgroundColor = COLORS.secondary;
         app.renderer.view.style.position = "absolute";
         app.renderer.view.style.display = "block";
         app.renderer.autoDensity = true;
